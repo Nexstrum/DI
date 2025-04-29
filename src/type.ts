@@ -64,3 +64,29 @@ export interface IDIContainer {
 	// @ts-expect-error The 'T' type parameter is required for compile-time reflection, even though it is not part of the signature.
 	has<T>(options?: HasOptions): boolean;
 }
+
+export interface IContainerMap<K extends string, V> {
+	get(key: K): V | undefined;
+	set(key: K, value: V): void;
+}
+
+export interface IDIContainerMaps {
+	/**
+	 * A map between interface names and the services that should be dependency injected
+	 */
+	constructorArguments: IContainerMap<string, ConstructorArgument[]>;
+
+	/**
+	 * A Map between identifying names for services and their IRegistrationRecords.
+	 */
+	serviceRegistry: IContainerMap<string, RegistrationRecord<unknown>>;
+
+	/**
+	 * A map between identifying names for services and concrete instances of their implementation.
+	 */
+	instances: IContainerMap<string, unknown>;
+}
+
+export interface DIContainerOptions {
+	customContainerMaps?: IDIContainerMaps;
+}

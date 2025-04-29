@@ -2,18 +2,20 @@ import {CONSTRUCTOR_ARGUMENTS_SYMBOL, DI_COMPILER_ERROR_HINT} from "./constant.j
 import {InstantiationError} from "./error.js";
 
 import type {
-	IDIContainer,
-	RegistrationRecord,
-	ImplementationInstance,
-	RegistrationKind,
+	ConstructInstanceOptions,
 	ConstructorArgument,
-	RegisterOptionsWithoutImplementation,
-	RegisterOptions,
-	RegisterOptionsWithImplementation,
+	DIContainerOptions,
 	GetOptions,
 	HasOptions,
-	ConstructInstanceOptions,
-	Parent
+	IDIContainer,
+	IDIContainerMaps,
+	ImplementationInstance,
+	Parent,
+	RegisterOptions,
+	RegisterOptionsWithImplementation,
+	RegisterOptionsWithoutImplementation,
+	RegistrationKind,
+	RegistrationRecord
 } from "./type.js";
 import {isClass, isCustomConstructableService} from "./util.js";
 
@@ -23,23 +25,25 @@ import {isClass, isCustomConstructableService} from "./util.js";
  * @author Frederik Wessberg
  */
 export class DIContainer implements IDIContainer {
+	readonly #containerMaps: IDIContainerMaps;
+
+	/**
+	 * Constructs a new dependency-injection container, optionally using custom container maps (defaults to using Map objects).
+	 *
+	 * @param options - Optional object with options, currently including only `customContainerMaps` to override the
+	 * default Map-based implementation of container maps.
+	 */
+	constructor(options?: DIContainerOptions) {
+		this.#containerMaps = options?.customContainerMaps ?? {
+			constructorArguments: new Map<string, ConstructorArgument[]>(),
+			serviceRegistry: new Map<string, RegistrationRecord<unknown>>(),
+			instances: new Map<string, unknown>()
+		};
+	}
+
 	get [Symbol.toStringTag]() {
 		return "DIContainer";
 	}
-
-	/**
-	 * A map between interface names and the services that should be dependency injected
-	 */
-	readonly #constructorArguments = new Map<string, ConstructorArgument[]>();
-	/**
-	 * A Map between identifying names for services and their IRegistrationRecords.
-	 */
-	readonly #serviceRegistry = new Map<string, RegistrationRecord<unknown>>();
-
-	/**
-	 * A map between identifying names for services and concrete instances of their implementation.
-	 */
-	readonly #instances = new Map<string, unknown>();
 
 	/**
 	 * Registers a service that will be instantiated once in the application lifecycle. All requests
@@ -112,7 +116,7 @@ export class DIContainer implements IDIContainer {
 		if (options == null) {
 			throw new ReferenceError(`1 argument required, but only 0 present. ${DI_COMPILER_ERROR_HINT}`);
 		}
-		return this.#serviceRegistry.has(options.identifier);
+		return this.#containerMaps.serviceRegistry.get(options.identifier) != null;
 	}
 
 	/**
@@ -124,9 +128,14 @@ export class DIContainer implements IDIContainer {
 		// Take all of the constructor arguments for the implementation
 		const implementationArguments =
 			"implementation" in options && options.implementation?.[CONSTRUCTOR_ARGUMENTS_SYMBOL] != null ? options.implementation[CONSTRUCTOR_ARGUMENTS_SYMBOL] : [];
-		this.#constructorArguments.set(options.identifier, implementationArguments);
+		this.#containerMaps.constructorArguments.set(options.identifier, implementationArguments);
 
-		this.#serviceRegistry.set(
+		// Clear cached instance of re-registered singletons
+		if (this.#hasInstance(options.identifier)) {
+			this.#setInstance(options.identifier, undefined);
+		}
+
+		this.#containerMaps.serviceRegistry.set(
 			options.identifier,
 			"implementation" in options && options.implementation != null ? {...options, kind} : {...options, kind, newExpression: newExpression!}
 		);
@@ -143,7 +152,7 @@ export class DIContainer implements IDIContainer {
 	 * Gets the cached instance, if any, associated with the given identifier.
 	 */
 	#getInstance<T>(identifier: string): T | null {
-		const instance = this.#instances.get(identifier);
+		const instance = this.#containerMaps.instances.get(identifier);
 		return instance == null ? null : (instance as T);
 	}
 
@@ -151,14 +160,14 @@ export class DIContainer implements IDIContainer {
 	 * Gets an IRegistrationRecord associated with the given identifier.
 	 */
 	#getRegistrationRecord<T>(identifier: string): RegistrationRecord<T> | undefined {
-		return this.#serviceRegistry.get(identifier) as RegistrationRecord<T> | undefined;
+		return this.#containerMaps.serviceRegistry.get(identifier) as RegistrationRecord<T> | undefined;
 	}
 
 	/**
 	 * Caches the given instance so that it can be retrieved in the future.
 	 */
 	#setInstance<T>(identifier: string, instance: T): T {
-		this.#instances.set(identifier, instance);
+		this.#containerMaps.instances.set(identifier, instance);
 		return instance;
 	}
 
@@ -197,7 +206,7 @@ export class DIContainer implements IDIContainer {
 
 		if (isClass<T>(implementation)) {
 			// Find the arguments for the identifier
-			const mappedArgs = this.#constructorArguments.get(identifier);
+			const mappedArgs = this.#containerMaps.constructorArguments.get(identifier);
 			if (mappedArgs == null) {
 				throw new InstantiationError(`Could not find constructor arguments. Have you registered it as a service?`, {identifier, parentChain});
 			}

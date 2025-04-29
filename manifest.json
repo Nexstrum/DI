@@ -1,0 +1,6 @@
+{
+	"modules": {
+		"@wessberg/di": ["dist/index"]
+	},
+	"preload": ["@wessberg/di"]
+}
