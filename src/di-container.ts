@@ -2,20 +2,20 @@ import {CONSTRUCTOR_ARGUMENTS_SYMBOL, DI_COMPILER_ERROR_HINT} from "./constant.j
 import {InstantiationError} from "./error.js";
 
 import type {
-	ConstructInstanceOptions,
-	ConstructorArgument,
-	DIContainerOptions,
-	GetOptions,
-	HasOptions,
 	IDIContainer,
-	IDIContainerMaps,
+	RegistrationRecord,
 	ImplementationInstance,
-	Parent,
+	RegistrationKind,
+	ConstructorArgument,
+	RegisterOptionsWithoutImplementation,
 	RegisterOptions,
 	RegisterOptionsWithImplementation,
-	RegisterOptionsWithoutImplementation,
-	RegistrationKind,
-	RegistrationRecord
+	GetOptions,
+	HasOptions,
+	ConstructInstanceOptions,
+	DIContainerOptions,
+	IDIContainerMaps,
+	Parent
 } from "./type.js";
 import {isClass, isCustomConstructableService} from "./util.js";
 
